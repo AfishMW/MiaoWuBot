@@ -8,6 +8,7 @@ from websockets.server import WebServerSocketProtocol
 
 from config import config
 from handlers.group import GroupHandler
+from handlers.coin import CoinHandler
 from web.server import WebManager, LogHandler
 
 logger = logging.getLogger("QQBot")
@@ -36,10 +37,12 @@ class QQBot:
     def __init__(self):
         self.napcat_connected = False
         self.group_handler = GroupHandler()
+        self.coin_handler = CoinHandler()
         self.web_manager = WebManager(bot=self)
 
     async def start(self):
         await self.group_handler.start()
+        await self.coin_handler.start()
 
         web_host = config.get("web_host", "0.0.0.0")
         web_port = config.get("web_port", 9090)
@@ -89,10 +92,26 @@ class QQBot:
                 logger.info("napcat 连接生命周期事件")
 
     async def _handle_message(self, msg: dict):
-        pass
+        if not config.get("coin_enabled", True):
+            return
+
+        msg_type = msg.get("message_type")
+        if msg_type != "group":
+            return
+
+        raw_text = (msg.get("raw_message") or "").strip()
+        if not raw_text:
+            return
+
+        group_id = msg.get("group_id")
+        user_id = msg.get("user_id")
+
+        if raw_text == "签到":
+            await self.coin_handler.handle_checkin(group_id, user_id)
 
     async def stop(self):
         await self.web_manager.stop()
+        await self.coin_handler.stop()
         await self.group_handler.stop()
         logger.info("机器人已停止")
 
