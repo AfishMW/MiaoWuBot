@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QQBot 管理后台</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  background: #f0f2f5; color: #333; min-height: 100vh;
+}
+.layout { display: flex; min-height: 100vh; }
+
+/* 侧边栏 */
+.sidebar {
+  width: 220px; background: #1a1a2e; color: #fff;
+  display: flex; flex-direction: column; flex-shrink: 0;
+}
+.sidebar-header {
+  padding: 20px; border-bottom: 1px solid rgba(255,255,255,.1);
+  text-align: center;
+}
+.sidebar-header h1 { font-size: 18px; font-weight: 600; }
+.sidebar-header p { font-size: 12px; color: #8899aa; margin-top: 2px; }
+.nav { list-style: none; padding: 8px 0; flex: 1; }
+.nav li {
+  padding: 12px 20px; cursor: pointer; display: flex; align-items: center;
+  color: #8899aa; transition: all .2s; font-size: 14px; gap: 10px;
+}
+.nav li:hover { background: rgba(255,255,255,.05); color: #fff; }
+.nav li.active { background: rgba(255,255,255,.1); color: #fff; border-right: 3px solid #4fc3f7; }
+.nav li .icon { font-size: 18px; width: 24px; text-align: center; }
+.sidebar-footer {
+  padding: 16px 20px; border-top: 1px solid rgba(255,255,255,.1);
+  font-size: 12px; color: #556677;
+}
+
+/* 主内容 */
+.main { flex: 1; display: flex; flex-direction: column; }
+.topbar {
+  background: #fff; padding: 16px 24px; display: flex;
+  align-items: center; justify-content: space-between;
+  box-shadow: 0 1px 3px rgba(0,0,0,.08); position: sticky; top: 0; z-index: 10;
+}
+.topbar h2 { font-size: 18px; font-weight: 600; }
+.topbar .status-badge {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 13px; color: #666;
+}
+.status-dot {
+  width: 8px; height: 8px; border-radius: 50%; display: inline-block;
+}
+.status-dot.online { background: #52c41a; }
+.status-dot.offline { background: #ff4d4f; }
+
+.content { padding: 24px; flex: 1; overflow-y: auto; }
+.page { display: none; }
+.page.active { display: block; }
+
+/* 卡片 */
+.card {
+  background: #fff; border-radius: 8px; padding: 20px;
+  box-shadow: 0 1px 3px rgba(0,0,0,.06); margin-bottom: 16px;
+}
+.card h3 { font-size: 15px; margin-bottom: 16px; color: #1a1a2e; display: flex; align-items: center; gap: 8px; }
+.card-row { display: flex; gap: 16px; flex-wrap: wrap; }
+.stat-card {
+  flex: 1; min-width: 160px; background: #f8f9fb; border-radius: 8px;
+  padding: 16px; text-align: center;
+}
+.stat-card .value { font-size: 28px; font-weight: 700; color: #1a1a2e; }
+.stat-card .label { font-size: 13px; color: #8899aa; margin-top: 4px; }
+
+/* 表单 */
+.form-group { margin-bottom: 14px; }
+.form-group label { display: block; font-size: 13px; color: #666; margin-bottom: 4px; font-weight: 500; }
+.form-group input, .form-group textarea, .form-group select {
+  width: 100%; padding: 8px 12px; border: 1px solid #d9d9d9; border-radius: 6px;
+  font-size: 14px; transition: border .2s; font-family: inherit;
+}
+.form-group input:focus, .form-group textarea:focus { border-color: #4fc3f7; outline: none; box-shadow: 0 0 0 2px rgba(79,195,247,.2); }
+.form-group textarea { resize: vertical; min-height: 60px; }
+.form-row { display: flex; gap: 12px; }
+.form-row .form-group { flex: 1; }
+.form-hint { font-size: 12px; color: #999; margin-top: 2px; }
+
+.btn {
+  padding: 8px 20px; border: none; border-radius: 6px; font-size: 14px;
+  cursor: pointer; transition: all .2s; font-weight: 500;
+}
+.btn-primary { background: #4fc3f7; color: #fff; }
+.btn-primary:hover { background: #29b6f6; }
+.btn-success { background: #52c41a; color: #fff; }
+.btn-success:hover { background: #45a817; }
+.btn-danger { background: #ff4d4f; color: #fff; }
+.btn-danger:hover { background: #e04345; }
+.btn-outline { background: #fff; color: #666; border: 1px solid #d9d9d9; }
+.btn-outline:hover { border-color: #4fc3f7; color: #4fc3f7; }
+
+/* 日志 */
+.log-container {
+  background: #1a1a2e; border-radius: 8px; padding: 12px;
+  font-family: "Cascadia Code", "Fira Code", monospace; font-size: 13px;
+  max-height: 500px; overflow-y: auto; line-height: 1.6;
+}
+.log-entry { display: flex; gap: 8px; padding: 2px 0; }
+.log-time { color: #556677; flex-shrink: 0; }
+.log-level { flex-shrink: 0; width: 52px; text-align: center; border-radius: 3px; font-size: 11px; padding: 0 4px; }
+.log-level.INFO { color: #4fc3f7; }
+.log-level.WARNING { color: #ffa726; }
+.log-level.ERROR { color: #ef5350; }
+.log-level.DEBUG { color: #8899aa; }
+.log-msg { color: #ccc; }
+.log-filter { display: flex; gap: 8px; margin-bottom: 12px; align-items: center; }
+.log-filter input { flex: 1; }
+.log-filter select { width: auto; }
+
+/* Toast 消息 */
+.toast {
+  position: fixed; top: 20px; right: 20px; padding: 12px 20px; border-radius: 8px;
+  color: #fff; font-size: 14px; z-index: 9999; opacity: 0;
+  transform: translateY(-10px); transition: all .3s;
+  max-width: 360px;
+}
+.toast.show { opacity: 1; transform: translateY(0); }
+.toast.success { background: #52c41a; }
+.toast.error { background: #ff4d4f; }
+.toast.info { background: #4fc3f7; }
+
+/* 响应式 */
+@media (max-width: 768px) {
+  .sidebar { width: 60px; }
+  .sidebar-header h1, .sidebar-header p, .nav li span:not(.icon), .sidebar-footer { display: none; }
+  .nav { padding: 4px 0; }
+  .nav li { justify-content: center; padding: 12px; }
+  .topbar h2 { font-size: 15px; }
+  .content { padding: 16px; }
+  .stat-card { min-width: 120px; }
+}
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <h1>🤖 QQBot</h1>
+      <p id="side-status">未连接</p>
+    </div>
+    <ul class="nav">
+      <li class="active" data-page="dashboard"><span class="icon">📊</span> <span>总览</span></li>
+      <li data-page="config"><span class="icon">⚙️</span> <span>设置</span></li>
+      <li data-page="logs"><span class="icon">📋</span> <span>日志</span></li>
+      <li data-page="test"><span class="icon">🧪</span> <span>测试</span></li>
+    </ul>
+    <div class="sidebar-footer">v1.0 · Powered by napcat</div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <h2 id="page-title">总览</h2>
+      <div class="status-badge">
+        <span class="status-dot offline" id="napcat-dot"></span>
+        <span id="napcat-status">napcat 未连接</span>
+      </div>
+    </header>
+
+    <div class="content">
+      <!-- 总览 -->
+      <div class="page active" id="page-dashboard">
+        <div class="card">
+          <h3>📊 运行状态</h3>
+          <div class="card-row">
+            <div class="stat-card">
+              <div class="value" id="d-bot-name">-</div>
+              <div class="label">机器人名称</div>
+            </div>
+            <div class="stat-card">
+              <div class="value" id="d-ws-port">-</div>
+              <div class="label">WS 端口</div>
+            </div>
+            <div class="stat-card">
+              <div class="value" id="d-api-port">-</div>
+              <div class="label">API 端口</div>
+            </div>
+            <div class="stat-card">
+              <div class="value" id="d-welcome">-</div>
+              <div class="label">入群欢迎</div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <h3>💡 快速上手</h3>
+          <ol style="margin-left: 20px; line-height: 2; color: #555; font-size: 14px;">
+            <li>确保 napcat 已配置反向 WebSocket 连接到 <code>ws://本机IP:8080/</code></li>
+            <li>在 <b>设置</b> 页面配置欢迎语和机器人名称</li>
+            <li>在 <b>测试</b> 页面发送测试消息验证功能</li>
+            <li>查看 <b>日志</b> 页面监控机器人运行状态</li>
+          </ol>
+        </div>
+      </div>
+
+      <!-- 设置 -->
+      <div class="page" id="page-config">
+        <div class="card">
+          <h3>⚙️ 基本设置</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label>机器人名称</label>
+              <input id="cfg-bot-name" placeholder="小助手">
+            </div>
+            <div class="form-group">
+              <label>日志级别</label>
+              <select id="cfg-log-level">
+                <option value="DEBUG">DEBUG</option>
+                <option value="INFO" selected>INFO</option>
+                <option value="WARNING">WARNING</option>
+                <option value="ERROR">ERROR</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>欢迎消息</label>
+            <textarea id="cfg-welcome-msg" rows="2"></textarea>
+            <div class="form-hint">使用 <code>{user_name}</code> 作为新成员昵称的占位符，会自动替换为 @</div>
+          </div>
+          <div class="form-group">
+            <label>欢迎图片路径（可选）</label>
+            <input id="cfg-welcome-img" placeholder="留空则不发送图片，如: welcome.png">
+            <div class="form-hint">图片放在 napcat 的数据目录中，或使用网络图片链接</div>
+          </div>
+          <div class="form-group">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+              <input type="checkbox" id="cfg-welcome-enabled" style="width:auto;accent-color:#4fc3f7">
+              启用入群欢迎
+            </label>
+          </div>
+          <button class="btn btn-primary" onclick="saveConfig()">💾 保存设置</button>
+        </div>
+        <div class="card">
+          <h3>🔌 连接设置</h3>
+          <div class="form-row">
+            <div class="form-group">
+              <label>WebSocket 端口</label>
+              <input id="cfg-ws-port" type="number" placeholder="8080">
+              <div class="form-hint">napcat 反向 WS 连接的端口</div>
+            </div>
+            <div class="form-group">
+              <label>HTTP API 端口</label>
+              <input id="cfg-api-port" type="number" placeholder="3000">
+              <div class="form-hint">napcat HTTP 服务端口</div>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>API Token（可选）</label>
+              <input id="cfg-api-token" placeholder="留空则不使用 Token">
+            </div>
+          </div>
+          <button class="btn btn-primary" onclick="saveConfig()">💾 保存设置</button>
+        </div>
+      </div>
+
+      <!-- 日志 -->
+      <div class="page" id="page-logs">
+        <div class="card">
+          <h3>📋 运行日志</h3>
+          <div class="log-filter">
+            <select id="log-level-filter" onchange="loadLogs()">
+              <option value="">全部级别</option>
+              <option value="DEBUG">DEBUG</option>
+              <option value="INFO">INFO</option>
+              <option value="WARNING">WARNING</option>
+              <option value="ERROR">ERROR</option>
+            </select>
+            <input id="log-search" placeholder="搜索日志..." oninput="loadLogs()">
+            <button class="btn btn-outline" onclick="loadLogs()">🔄 刷新</button>
+            <button class="btn btn-outline" onclick="toggleAutoRefresh()" id="auto-refresh-btn">⏸ 暂停</button>
+          </div>
+          <div class="log-container" id="log-list"></div>
+        </div>
+      </div>
+
+      <!-- 测试 -->
+      <div class="page" id="page-test">
+        <div class="card">
+          <h3>🧪 测试入群欢迎</h3>
+          <div class="form-group">
+            <label>群号</label>
+            <input id="test-group-id" type="number" placeholder="请输入要发送测试消息的群号">
+          </div>
+          <button class="btn btn-success" onclick="testWelcome()">📨 发送测试欢迎消息</button>
+          <div id="test-result" style="margin-top:12px;font-size:14px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+let autoRefresh = true;
+let refreshTimer = null;
+const NAV_MAP = {
+  dashboard: { title: '总览' },
+  config: { title: '设置' },
+  logs: { title: '日志' },
+  test: { title: '测试' },
+};
+
+function $(id) { return document.getElementById(id); }
+
+// 导航切换
+document.querySelectorAll('.nav li').forEach(el => {
+  el.addEventListener('click', () => {
+    document.querySelectorAll('.nav li').forEach(e => e.classList.remove('active'));
+    el.classList.add('active');
+    const page = el.dataset.page;
+    document.querySelectorAll('.page').forEach(e => e.classList.remove('active'));
+    $(`page-${page}`).classList.add('active');
+    $('page-title').textContent = NAV_MAP[page]?.title || page;
+    if (page === 'dashboard') loadStatus();
+    if (page === 'config') loadConfig();
+    if (page === 'logs') { loadLogs(); startAutoRefresh(); }
+    else { stopAutoRefresh(); }
+  });
+});
+
+// Toast
+function showToast(msg, type = 'success') {
+  const t = $('toast');
+  t.textContent = msg; t.className = `toast ${type}`;
+  setTimeout(() => t.classList.add('show'), 10);
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// API 请求
+async function api(method, path, body) {
+  try {
+    const opt = { method, headers: {} };
+    if (body) { opt.headers['Content-Type'] = 'application/json'; opt.body = JSON.stringify(body); }
+    const resp = await fetch(path, opt);
+    return await resp.json();
+  } catch (e) {
+    showToast('网络错误: ' + e.message, 'error');
+    return null;
+  }
+}
+
+// 加载状态
+async function loadStatus() {
+  const data = await api('GET', '/api/status');
+  if (!data) return;
+  $('d-bot-name').textContent = data.bot_name || '-';
+  $('d-ws-port').textContent = data.ws_port || '-';
+  $('d-api-port').textContent = data.api_port || '-';
+  $('d-welcome').textContent = data.welcome_enabled ? '✅ 已开启' : '❌ 已关闭';
+
+  // 顶部状态
+  const dot = $('napcat-dot');
+  const txt = $('napcat-status');
+  if (data.napcat_connected) {
+    dot.className = 'status-dot online';
+    txt.textContent = 'napcat 已连接';
+  } else {
+    dot.className = 'status-dot offline';
+    txt.textContent = 'napcat 未连接';
+  }
+  $('side-status').textContent = data.napcat_connected ? '🟢 运行中' : '🔴 未连接';
+}
+
+// 加载配置
+async function loadConfig() {
+  const data = await api('GET', '/api/config');
+  if (!data) return;
+  $('cfg-bot-name').value = data.bot_name || '';
+  $('cfg-log-level').value = data.log_level || 'INFO';
+  $('cfg-welcome-msg').value = data.welcome_message || '';
+  $('cfg-welcome-img').value = data.welcome_image || '';
+  $('cfg-welcome-enabled').checked = data.welcome_enabled !== false;
+  $('cfg-ws-port').value = data.ws_port || 8080;
+  $('cfg-api-port').value = data.api_port || 3000;
+  $('cfg-api-token').value = data.api_token || '';
+}
+
+// 保存配置
+async function saveConfig() {
+  const cfg = {
+    bot_name: $('cfg-bot-name').value,
+    log_level: $('cfg-log-level').value,
+    welcome_message: $('cfg-welcome-msg').value,
+    welcome_image: $('cfg-welcome-img').value,
+    welcome_enabled: $('cfg-welcome-enabled').checked,
+    ws_port: parseInt($('cfg-ws-port').value) || 8080,
+    api_port: parseInt($('cfg-api-port').value) || 3000,
+    api_token: $('cfg-api-token').value,
+  };
+  const result = await api('PUT', '/api/config', cfg);
+  if (result && result.updated) {
+    showToast(`已更新: ${result.updated.join(', ')}`);
+    loadStatus();
+  } else {
+    showToast('保存失败', 'error');
+  }
+}
+
+// 加载日志
+async function loadLogs() {
+  const level = $('log-level-filter').value;
+  const search = $('log-search').value;
+  const url = `/api/logs?level=${level}&search=${encodeURIComponent(search)}`;
+  const data = await api('GET', url);
+  if (!data) return;
+  const container = $('log-list');
+  container.innerHTML = data.map(r =>
+    `<div class="log-entry">
+      <span class="log-time">${r.time}</span>
+      <span class="log-level ${r.level}">${r.level}</span>
+      <span class="log-msg">[${r.name}] ${r.message}</span>
+    </div>`
+  ).join('');
+  container.scrollTop = container.scrollHeight;
+}
+
+function startAutoRefresh() {
+  stopAutoRefresh();
+  if (autoRefresh) {
+    refreshTimer = setInterval(loadLogs, 3000);
+    $('auto-refresh-btn').textContent = '⏸ 暂停';
+  }
+}
+
+function stopAutoRefresh() {
+  if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; }
+}
+
+function toggleAutoRefresh() {
+  autoRefresh = !autoRefresh;
+  if (autoRefresh) startAutoRefresh();
+  else {
+    stopAutoRefresh();
+    $('auto-refresh-btn').textContent = '▶ 自动刷新';
+  }
+}
+
+// 测试欢迎
+async function testWelcome() {
+  const groupId = $('test-group-id').value;
+  if (!groupId) { showToast('请填写群号', 'error'); return; }
+  const result = $('test-result');
+  result.innerHTML = '⏳ 发送中...';
+  const data = await api('POST', '/api/test-welcome', { group_id: parseInt(groupId) });
+  if (data && data.success) {
+    result.innerHTML = `✅ 测试消息已发送到群 ${data.group_id}`;
+    showToast('测试消息发送成功');
+  } else {
+    result.innerHTML = `❌ ${data?.error || '发送失败'}`;
+    showToast('发送失败', 'error');
+  }
+}
+
+// 定时刷新状态
+setInterval(loadStatus, 10000);
+
+// 初始化
+loadStatus();
+</script>
+</body>
+</html>
