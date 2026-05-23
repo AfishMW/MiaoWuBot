@@ -41,6 +41,7 @@ class WebManager:
         self.app.router.add_put("/api/config", self._handle_update_config)
         self.app.router.add_get("/api/logs", self._handle_get_logs)
         self.app.router.add_get("/api/coin-ranking", self._handle_coin_ranking)
+        self.app.router.add_get("/api/bank-ranking", self._handle_bank_ranking)
         self.app.router.add_post("/api/test-welcome", self._handle_test_welcome)
         self.app.router.add_static("/", path=STATIC_DIR, name="static", show_index=True)
 
@@ -51,6 +52,7 @@ class WebManager:
             "welcome_enabled": config.get("welcome_enabled"),
             "notify_leave_enabled": config.get("notify_leave_enabled"),
             "coin_enabled": config.get("coin_enabled"),
+            "bank_enabled": config.get("bank_enabled"),
             "ws_port": config.get("ws_port"),
             "api_port": config.get("api_port"),
             "napcat_connected": getattr(self.bot, "napcat_connected", False) if self.bot else False,
@@ -62,7 +64,8 @@ class WebManager:
             "bot_name", "welcome_enabled", "welcome_message",
             "welcome_image", "notify_leave_enabled", "notify_leave_message",
             "notify_kick_message", "coin_enabled", "coin_checkin_min",
-            "coin_checkin_max", "log_level",
+            "coin_checkin_max", "bank_enabled", "bank_max_loan",
+            "admin_qq", "log_level",
         ]
         result = {k: config.get(k) for k in safe_keys}
         return web.json_response(result)
@@ -79,14 +82,15 @@ class WebManager:
             "welcome_message", "welcome_image",
             "notify_leave_enabled", "notify_leave_message", "notify_kick_message",
             "coin_enabled", "coin_checkin_min", "coin_checkin_max",
+            "bank_enabled", "bank_max_loan", "admin_qq",
             "log_level",
         }
         updated = []
         for key, value in body.items():
             if key in allowed:
-                if key in ("ws_port", "api_port", "coin_checkin_min", "coin_checkin_max"):
+                if key in ("ws_port", "api_port", "coin_checkin_min", "coin_checkin_max", "bank_max_loan"):
                     value = int(value)
-                elif key in ("welcome_enabled", "notify_leave_enabled", "coin_enabled"):
+                elif key in ("welcome_enabled", "notify_leave_enabled", "coin_enabled", "bank_enabled"):
                     value = bool(value)
                 config.set(key, value)
                 updated.append(key)
@@ -112,6 +116,21 @@ class WebManager:
         sorted_users = sorted(users.items(), key=lambda x: x[1].get("coins", 0), reverse=True)
         ranking = [
             {"user_id": uid, "coins": info.get("coins", 0), "last_checkin": info.get("last_checkin", "")}
+            for uid, info in sorted_users[:50]
+        ]
+        return web.json_response(ranking)
+
+    async def _handle_bank_ranking(self, request):
+        if not self.bot or not self.bot.coin_handler:
+            return web.json_response({"error": "机器人未就绪"}, status=503)
+        coin_handler = self.bot.coin_handler
+        users = coin_handler._data.get("users", {})
+        sorted_users = sorted(
+            [(uid, info) for uid, info in users.items() if info.get("debt", 0) > 0],
+            key=lambda x: x[1].get("debt", 0), reverse=True
+        )
+        ranking = [
+            {"user_id": uid, "debt": info.get("debt", 0), "coins": info.get("coins", 0)}
             for uid, info in sorted_users[:50]
         ]
         return web.json_response(ranking)

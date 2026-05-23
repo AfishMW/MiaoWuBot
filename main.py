@@ -9,6 +9,7 @@ from websockets.server import WebServerSocketProtocol
 from config import config
 from handlers.group import GroupHandler
 from handlers.coin import CoinHandler
+from handlers.bank import BankHandler
 from web.server import WebManager, LogHandler
 
 logger = logging.getLogger("QQBot")
@@ -38,6 +39,7 @@ class QQBot:
         self.napcat_connected = False
         self.group_handler = GroupHandler()
         self.coin_handler = CoinHandler()
+        self.bank_handler = BankHandler(coin_handler=self.coin_handler)
         self.web_manager = WebManager(bot=self)
 
     async def start(self):
@@ -92,9 +94,6 @@ class QQBot:
                 logger.info("napcat 连接生命周期事件")
 
     async def _handle_message(self, msg: dict):
-        if not config.get("coin_enabled", True):
-            return
-
         msg_type = msg.get("message_type")
         if msg_type != "group":
             return
@@ -106,8 +105,27 @@ class QQBot:
         group_id = msg.get("group_id")
         user_id = msg.get("user_id")
 
+        if raw_text in ("/help", "帮助"):
+            await self.bank_handler.handle_help(group_id)
+            return
+
         if raw_text == "签到":
+            if not config.get("coin_enabled", True):
+                return
             await self.coin_handler.handle_checkin(group_id, user_id)
+            return
+
+        match_loan = raw_text.startswith("借款")
+        if match_loan and len(raw_text) > 2:
+            amount_str = raw_text[2:]
+            await self.bank_handler.handle_loan(group_id, user_id, amount_str)
+            return
+
+        match_repay = raw_text.startswith("还款")
+        if match_repay and len(raw_text) > 2:
+            amount_str = raw_text[2:]
+            await self.bank_handler.handle_repay(group_id, user_id, amount_str)
+            return
 
     async def stop(self):
         await self.web_manager.stop()

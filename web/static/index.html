@@ -153,6 +153,7 @@ body {
       <li data-page="logs"><span class="icon">📋</span> <span>日志</span></li>
       <li data-page="test"><span class="icon">🧪</span> <span>测试</span></li>
       <li data-page="coin"><span class="icon">💰</span> <span>金币</span></li>
+      <li data-page="bank"><span class="icon">🏦</span> <span>银行</span></li>
     </ul>
     <div class="sidebar-footer">v1.0 · Powered by napcat</div>
   </aside>
@@ -195,6 +196,10 @@ body {
             <div class="stat-card">
               <div class="value" id="d-coin">-</div>
               <div class="label">金币系统</div>
+            </div>
+            <div class="stat-card">
+              <div class="value" id="d-bank">-</div>
+              <div class="label">银行系统</div>
             </div>
           </div>
         </div>
@@ -287,6 +292,30 @@ body {
           <button class="btn btn-primary" onclick="saveConfig()">💾 保存设置</button>
         </div>
         <div class="card">
+          <h3>🏦 银行系统</h3>
+          <div class="form-group">
+            <label>每人最高借款额度</label>
+            <input id="cfg-bank-max-loan" type="number" min="1" placeholder="1000">
+            <div class="form-hint">用户最多能从银行借多少金币</div>
+          </div>
+          <div class="form-group">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+              <input type="checkbox" id="cfg-bank-enabled" style="width:auto;accent-color:#4fc3f7">
+              启用银行系统（借款/还款）
+            </label>
+          </div>
+          <button class="btn btn-primary" onclick="saveConfig()">💾 保存设置</button>
+        </div>
+        <div class="card">
+          <h3>👤 管理员配置</h3>
+          <div class="form-group">
+            <label>管理员 QQ 号</label>
+            <input id="cfg-admin-qq" type="text" placeholder="多个用逗号分隔，如：10001,10002">
+            <div class="form-hint">设置机器人管理员，多个 QQ 用英文逗号分隔。留空则无管理员</div>
+          </div>
+          <button class="btn btn-primary" onclick="saveConfig()">💾 保存设置</button>
+        </div>
+        <div class="card">
           <h3>🔌 连接设置</h3>
           <div class="form-row">
             <div class="form-group">
@@ -365,6 +394,29 @@ body {
           <div id="coin-ranking-empty" style="text-align:center;padding:24px;color:#999;">暂无数据</div>
         </div>
       </div>
+
+      <!-- 银行 -->
+      <div class="page" id="page-bank">
+        <div class="card">
+          <h3>🏦 负债排行</h3>
+          <p style="color:#888;font-size:14px;margin-bottom:12px;">用户发送「借款X」借钱，「还款X」还钱，每人有借款额度上限</p>
+          <div style="margin-bottom:12px;">
+            <button class="btn btn-outline" onclick="loadBankRanking()">🔄 刷新排行</button>
+          </div>
+          <table style="width:100%;border-collapse:collapse;font-size:14px;">
+            <thead>
+              <tr style="background:#f8f9fb;">
+                <th style="padding:8px 12px;text-align:left;width:60px;">排名</th>
+                <th style="padding:8px 12px;text-align:left;">QQ号</th>
+                <th style="padding:8px 12px;text-align:right;">负债</th>
+                <th style="padding:8px 12px;text-align:right;">持有金币</th>
+              </tr>
+            </thead>
+            <tbody id="bank-ranking-body"></tbody>
+          </table>
+          <div id="bank-ranking-empty" style="text-align:center;padding:24px;color:#999;">暂无负债用户</div>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -381,6 +433,7 @@ const NAV_MAP = {
   logs: { title: '日志' },
   test: { title: '测试' },
   coin: { title: '金币排行' },
+  bank: { title: '负债排行' },
 };
 
 function $(id) { return document.getElementById(id); }
@@ -399,6 +452,7 @@ document.querySelectorAll('.nav li').forEach(el => {
     if (page === 'logs') { loadLogs(); startAutoRefresh(); }
     else { stopAutoRefresh(); }
     if (page === 'coin') loadCoinRanking();
+    if (page === 'bank') loadBankRanking();
   });
 });
 
@@ -433,6 +487,7 @@ async function loadStatus() {
   $('d-welcome').textContent = data.welcome_enabled ? '✅ 已开启' : '❌ 已关闭';
   $('d-notify-leave').textContent = data.notify_leave_enabled ? '✅ 已开启' : '❌ 已关闭';
   $('d-coin').textContent = data.coin_enabled ? '✅ 已开启' : '❌ 已关闭';
+  $('d-bank').textContent = data.bank_enabled ? '✅ 已开启' : '❌ 已关闭';
 
   // 顶部状态
   const dot = $('napcat-dot');
@@ -462,6 +517,9 @@ async function loadConfig() {
   $('cfg-coin-min').value = data.coin_checkin_min || 1;
   $('cfg-coin-max').value = data.coin_checkin_max || 100;
   $('cfg-coin-enabled').checked = data.coin_enabled !== false;
+  $('cfg-bank-max-loan').value = data.bank_max_loan || 1000;
+  $('cfg-bank-enabled').checked = data.bank_enabled !== false;
+  $('cfg-admin-qq').value = data.admin_qq || '';
   $('cfg-ws-port').value = data.ws_port || 8080;
   $('cfg-api-port').value = data.api_port || 3000;
   $('cfg-api-token').value = data.api_token || '';
@@ -481,6 +539,9 @@ async function saveConfig() {
     coin_enabled: $('cfg-coin-enabled').checked,
     coin_checkin_min: parseInt($('cfg-coin-min').value) || 1,
     coin_checkin_max: parseInt($('cfg-coin-max').value) || 100,
+    bank_enabled: $('cfg-bank-enabled').checked,
+    bank_max_loan: parseInt($('cfg-bank-max-loan').value) || 1000,
+    admin_qq: $('cfg-admin-qq').value,
     ws_port: parseInt($('cfg-ws-port').value) || 8080,
     api_port: parseInt($('cfg-api-port').value) || 3000,
     api_token: $('cfg-api-token').value,
@@ -511,6 +572,27 @@ async function loadCoinRanking() {
       <td style="padding:8px 12px;">${u.user_id}</td>
       <td style="padding:8px 12px;text-align:right;font-weight:600;">${u.coins}</td>
       <td style="padding:8px 12px;text-align:right;color:#888;">${u.last_checkin || '-'}</td>
+    </tr>`
+  ).join('');
+}
+
+// 加载银行排行
+async function loadBankRanking() {
+  const data = await api('GET', '/api/bank-ranking');
+  const tbody = $('bank-ranking-body');
+  const empty = $('bank-ranking-empty');
+  if (!data || data.length === 0) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+  tbody.innerHTML = data.map((u, i) =>
+    `<tr${i % 2 === 0 ? '' : ' style="background:#f8f9fb;"'}>
+      <td style="padding:8px 12px;">${i + 1}</td>
+      <td style="padding:8px 12px;">${u.user_id}</td>
+      <td style="padding:8px 12px;text-align:right;color:#e74c3c;font-weight:600;">${u.debt}</td>
+      <td style="padding:8px 12px;text-align:right;">${u.coins}</td>
     </tr>`
   ).join('');
 }

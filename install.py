@@ -161,6 +161,9 @@ def setup_config() -> bool:
       "coin_enabled": true,
       "coin_checkin_min": 1,
       "coin_checkin_max": 100,
+      "bank_enabled": true,
+      "bank_max_loan": 1000,
+      "admin_qq": "",
       "log_level": "INFO",
       "web_host": "0.0.0.0",
       "web_port": 9090
