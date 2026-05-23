@@ -187,6 +187,10 @@ body {
               <div class="value" id="d-welcome">-</div>
               <div class="label">入群欢迎</div>
             </div>
+            <div class="stat-card">
+              <div class="value" id="d-notify-leave">-</div>
+              <div class="label">退群通知</div>
+            </div>
           </div>
         </div>
         <div class="card">
@@ -222,7 +226,7 @@ body {
           <div class="form-group">
             <label>欢迎消息</label>
             <textarea id="cfg-welcome-msg" rows="2"></textarea>
-            <div class="form-hint">使用 <code>{user_name}</code> 作为新成员昵称的占位符，会自动替换为 @</div>
+            <div class="form-hint">使用 <code>{user_name}</code> 作为占位符，会自动替换为 昵称（QQ号）</div>
           </div>
           <div class="form-group">
             <label>欢迎图片路径（可选）</label>
@@ -233,6 +237,26 @@ body {
             <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
               <input type="checkbox" id="cfg-welcome-enabled" style="width:auto;accent-color:#4fc3f7">
               启用入群欢迎
+            </label>
+          </div>
+          <button class="btn btn-primary" onclick="saveConfig()">💾 保存设置</button>
+        </div>
+        <div class="card">
+          <h3>🚪 退群/踢出通知</h3>
+          <div class="form-group">
+            <label>主动退群消息</label>
+            <textarea id="cfg-leave-msg" rows="2"></textarea>
+            <div class="form-hint">使用 <code>{user_name}</code> 作为占位符，会自动替换为 昵称（QQ号）</div>
+          </div>
+          <div class="form-group">
+            <label>被踢出消息</label>
+            <textarea id="cfg-kick-msg" rows="2"></textarea>
+            <div class="form-hint">使用 <code>{user_name}</code> 作为占位符，会自动替换为 昵称（QQ号）</div>
+          </div>
+          <div class="form-group">
+            <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+              <input type="checkbox" id="cfg-notify-leave-enabled" style="width:auto;accent-color:#4fc3f7">
+              启用退群/踢出通知
             </label>
           </div>
           <button class="btn btn-primary" onclick="saveConfig()">💾 保存设置</button>
@@ -357,6 +381,7 @@ async function loadStatus() {
   $('d-ws-port').textContent = data.ws_port || '-';
   $('d-api-port').textContent = data.api_port || '-';
   $('d-welcome').textContent = data.welcome_enabled ? '✅ 已开启' : '❌ 已关闭';
+  $('d-notify-leave').textContent = data.notify_leave_enabled ? '✅ 已开启' : '❌ 已关闭';
 
   // 顶部状态
   const dot = $('napcat-dot');
@@ -380,6 +405,9 @@ async function loadConfig() {
   $('cfg-welcome-msg').value = data.welcome_message || '';
   $('cfg-welcome-img').value = data.welcome_image || '';
   $('cfg-welcome-enabled').checked = data.welcome_enabled !== false;
+  $('cfg-leave-msg').value = data.notify_leave_message || '';
+  $('cfg-kick-msg').value = data.notify_kick_message || '';
+  $('cfg-notify-leave-enabled').checked = data.notify_leave_enabled !== false;
   $('cfg-ws-port').value = data.ws_port || 8080;
   $('cfg-api-port').value = data.api_port || 3000;
   $('cfg-api-token').value = data.api_token || '';
@@ -393,6 +421,9 @@ async function saveConfig() {
     welcome_message: $('cfg-welcome-msg').value,
     welcome_image: $('cfg-welcome-img').value,
     welcome_enabled: $('cfg-welcome-enabled').checked,
+    notify_leave_message: $('cfg-leave-msg').value,
+    notify_kick_message: $('cfg-kick-msg').value,
+    notify_leave_enabled: $('cfg-notify-leave-enabled').checked,
     ws_port: parseInt($('cfg-ws-port').value) || 8080,
     api_port: parseInt($('cfg-api-port').value) || 3000,
     api_token: $('cfg-api-token').value,

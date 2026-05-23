@@ -1,0 +1,15 @@
+# Trae AI 规则文件
+.trae/rules/
+
+# Python
+__pycache__/
+*.pyc
+venv/
+*.egg-info/
+
+# 配置文件（含敏感信息）
+config.json
+
+# 系统文件
+.DS_Store
+Thumbs.db

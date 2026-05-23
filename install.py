@@ -155,6 +155,9 @@ def setup_config() -> bool:
       "welcome_enabled": true,
       "welcome_message": "欢迎新群友 {user_name} 加入本群！请先阅读群公告，祝您玩得开心~",
       "welcome_image": "",
+      "notify_leave_enabled": true,
+      "notify_leave_message": "{user_name} 离开了我们",
+      "notify_kick_message": "{user_name} 被管理员移出了群聊",
       "log_level": "INFO",
       "web_host": "0.0.0.0",
       "web_port": 9090

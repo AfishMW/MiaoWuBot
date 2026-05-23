@@ -42,10 +42,20 @@ class GroupHandler:
             "message": message
         })
 
+    async def _get_user_display(self, user_id: int) -> str:
+        result = await self._call_api("get_stranger_info", {"user_id": user_id})
+        data = result.get("data")
+        if data and data.get("nickname"):
+            nickname = data["nickname"]
+            return f"{nickname}（{user_id}）"
+        return str(user_id)
+
     async def handle_notice(self, notice: dict):
         notice_type = notice.get("notice_type")
         if notice_type == "group_increase":
             await self._handle_group_increase(notice)
+        elif notice_type == "group_decrease":
+            await self._handle_group_decrease(notice)
 
     async def _handle_group_increase(self, notice: dict):
         if not config.get("welcome_enabled"):
@@ -53,9 +63,10 @@ class GroupHandler:
 
         group_id = notice.get("group_id")
         user_id = notice.get("user_id")
+        user_display = await self._get_user_display(user_id)
 
         welcome_msg = config.get("welcome_message")
-        welcome_msg = welcome_msg.replace("{user_name}", f"[CQ:at,qq={user_id}]")
+        welcome_msg = welcome_msg.replace("{user_name}", user_display)
 
         image_path = config.get("welcome_image")
         if image_path:
@@ -63,5 +74,30 @@ class GroupHandler:
         else:
             full_msg = welcome_msg
 
-        logger.info(f"群 {group_id} 新成员 {user_id} 加入，发送欢迎消息")
+        logger.info(f"群 {group_id} 新成员 {user_display} 加入，发送欢迎消息")
         await self.send_group_msg(group_id, full_msg)
+
+    async def _handle_group_decrease(self, notice: dict):
+        if not config.get("notify_leave_enabled"):
+            return
+
+        sub_type = notice.get("sub_type")
+        group_id = notice.get("group_id")
+        user_id = notice.get("user_id")
+
+        if sub_type == "leave":
+            msg_template = config.get("notify_leave_message")
+            logger.info(f"群 {group_id} 成员 {user_id} 主动退群")
+        elif sub_type == "kick":
+            msg_template = config.get("notify_kick_message")
+            operator_id = notice.get("operator_id")
+            logger.info(f"群 {group_id} 成员 {user_id} 被 {operator_id} 踢出")
+        elif sub_type == "kick_me":
+            logger.warning(f"机器人已被踢出群 {group_id}")
+            return
+        else:
+            return
+
+        user_display = await self._get_user_display(user_id)
+        msg = msg_template.replace("{user_name}", user_display)
+        await self.send_group_msg(group_id, msg)

@@ -48,6 +48,7 @@ class WebManager:
             "bot_name": config.get("bot_name"),
             "running": True,
             "welcome_enabled": config.get("welcome_enabled"),
+            "notify_leave_enabled": config.get("notify_leave_enabled"),
             "ws_port": config.get("ws_port"),
             "api_port": config.get("api_port"),
             "napcat_connected": getattr(self.bot, "napcat_connected", False) if self.bot else False,
@@ -57,7 +58,8 @@ class WebManager:
         safe_keys = [
             "ws_host", "ws_port", "api_host", "api_port",
             "bot_name", "welcome_enabled", "welcome_message",
-            "welcome_image", "log_level",
+            "welcome_image", "notify_leave_enabled", "notify_leave_message",
+            "notify_kick_message", "log_level",
         ]
         result = {k: config.get(k) for k in safe_keys}
         return web.json_response(result)
@@ -71,14 +73,16 @@ class WebManager:
         allowed = {
             "ws_host", "ws_port", "api_host", "api_port",
             "api_token", "bot_name", "welcome_enabled",
-            "welcome_message", "welcome_image", "log_level",
+            "welcome_message", "welcome_image",
+            "notify_leave_enabled", "notify_leave_message", "notify_kick_message",
+            "log_level",
         }
         updated = []
         for key, value in body.items():
             if key in allowed:
                 if key in ("ws_port", "api_port"):
                     value = int(value)
-                elif key == "welcome_enabled":
+                elif key in ("welcome_enabled", "notify_leave_enabled"):
                     value = bool(value)
                 config.set(key, value)
                 updated.append(key)
@@ -108,7 +112,7 @@ class WebManager:
             return web.json_response({"error": "请填写有效的群号"}, status=400)
 
         welcome_msg = config.get("welcome_message")
-        welcome_msg = welcome_msg.replace("{user_name}", "[测试]新用户")
+        welcome_msg = welcome_msg.replace("{user_name}", "测试用户（123456）")
         image_path = config.get("welcome_image")
         if image_path:
             full_msg = f"{welcome_msg}\n[CQ:image,file={image_path}]"
